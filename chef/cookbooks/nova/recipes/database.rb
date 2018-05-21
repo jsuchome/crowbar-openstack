@@ -143,7 +143,7 @@ execute "nova-manage api_db sync" do
   end
 end
 
-execute "nova-manage db sync up to revision 329" do
+execute "nova-manage db sync" do
   user node[:nova][:user]
   group node[:nova][:group]
   command "nova-manage db sync 329"
@@ -152,43 +152,15 @@ execute "nova-manage db sync up to revision 329" do
   # are the founder of the HA cluster (so that it's really only done once).
   only_if do
     !node[:nova][:db_synced] &&
-      (!node[:nova][:ha][:enabled] || CrowbarPacemakerHelper.is_cluster_founder?(node)) &&
-      (`nova-manage --log-file /dev/null db version`.to_i < 329)
+      (!node[:nova][:ha][:enabled] || CrowbarPacemakerHelper.is_cluster_founder?(node))
   end
 end
 
-# Perform online migrations up to revision 329 (the ones for later revisions
-# will fail. These errors can probably be ignored (hence the ignore_failure usage)
 execute "nova-manage db online_data_migrations" do
   user node[:nova][:user]
   group node[:nova][:group]
   command "nova-manage db online_data_migrations"
   ignore_failure true
-  action :run
-  only_if do
-    !node[:nova][:db_synced] &&
-      (!node[:nova][:ha][:enabled] || CrowbarPacemakerHelper.is_cluster_founder?(node)) &&
-      (`nova-manage --log-file /dev/null db version`.to_i == 329)
-  end
-end
-
-# Update Nova DB to latest revision
-execute "nova-manage db sync" do
-  user node[:nova][:user]
-  group node[:nova][:group]
-  command "nova-manage db sync"
-  action :run
-  only_if do
-    !node[:nova][:db_synced] &&
-      (!node[:nova][:ha][:enabled] || CrowbarPacemakerHelper.is_cluster_founder?(node))
-  end
-end
-
-# Run online migration again to cover the ones that failed in the first pass.
-execute "nova-manage db online_data_migrations (continue)" do
-  user node[:nova][:user]
-  group node[:nova][:group]
-  command "nova-manage db online_data_migrations"
   action :run
   only_if do
     !node[:nova][:db_synced] &&
